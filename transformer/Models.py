@@ -285,7 +285,6 @@ class Transformer_LM(nn.Module):
         'To facilitate the residual connections, \
          the dimensions of all module outputs shall be the same.'
 
-        #TODO Check how they share parameters if they have reversed dimensions
         if tgt_emb_prj_weight_sharing:
             # Share the weight matrix between target word embedding & the final logit dense layer
             self.tgt_word_prj.weight = self.decoder.word_emb.weight
@@ -294,7 +293,6 @@ class Transformer_LM(nn.Module):
             self.x_logit_scale = 1.
 
     def forward(self, seq, pos):
-        #TODO Why
         seq, pos = seq[:, :-1], pos[:, :-1]
 
         dec_output, *_ = self.decoder(seq, pos)
