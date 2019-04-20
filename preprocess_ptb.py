@@ -84,21 +84,21 @@ def main():
 
     # Training set
     train_word_insts = read_instances_from_file(
-        opt.train_src, opt.max_word_seq_len, opt.keep_case)
+        opt.train, opt.max_word_seq_len, opt.keep_case)
 
     #- Remove empty instances
     train_word_insts = [s for s in train_word_insts if s]
 
     # Validation set
     valid_word_insts = read_instances_from_file(
-        opt.valid_src, opt.max_word_seq_len, opt.keep_case)
+        opt.valid, opt.max_word_seq_len, opt.keep_case)
 
     #- Remove empty instances
     valid_word_insts = [s for s in valid_word_insts if s]
 
     # Validation set
     test_word_insts = read_instances_from_file(
-        opt.test_src, opt.max_word_seq_len, opt.keep_case)
+        opt.test, opt.max_word_seq_len, opt.keep_case)
 
     # - Remove empty instances
     test_word_insts = [s for s in test_word_insts if s]
