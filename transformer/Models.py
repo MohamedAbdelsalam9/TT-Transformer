@@ -218,7 +218,7 @@ class Decoder_LM(nn.Module):
             d_model, d_inner, dropout=0.1):
 
         super().__init__()
-        #TODO Check how n_position works
+
         n_position = len_max_seq + 1
 
         self.word_emb = nn.Embedding(
@@ -288,7 +288,7 @@ class Transformer_LM(nn.Module):
         #TODO Check how they share parameters if they have reversed dimensions
         if tgt_emb_prj_weight_sharing:
             # Share the weight matrix between target word embedding & the final logit dense layer
-            self.tgt_word_prj.weight = self.decoder.tgt_word_emb.weight
+            self.tgt_word_prj.weight = self.decoder.word_emb.weight
             self.x_logit_scale = (d_model ** -0.5)
         else:
             self.x_logit_scale = 1.
