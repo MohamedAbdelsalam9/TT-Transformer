@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import transformer.Constants as Constants
-from transformer.Layers import EncoderLayer, DecoderLayer
+from transformer.Layers import EncoderLayer, DecoderLayer, DecoderLayer_LM
 
 __author__ = "Yu-Hsiang Huang"
 
@@ -203,6 +203,101 @@ class Transformer(nn.Module):
 
         enc_output, *_ = self.encoder(src_seq, src_pos)
         dec_output, *_ = self.decoder(tgt_seq, tgt_pos, src_seq, enc_output)
+        seq_logit = self.tgt_word_prj(dec_output) * self.x_logit_scale
+
+        return seq_logit.view(-1, seq_logit.size(2))
+
+#A Transformer for language modelling with decoder only
+class Decoder_LM(nn.Module):
+    ''' A decoder model with self attention mechanism. '''
+
+    def __init__(
+            self,
+            n_vocab, len_max_seq, d_word_vec,
+            n_layers, n_head, d_k, d_v,
+            d_model, d_inner, dropout=0.1):
+
+        super().__init__()
+        #TODO Check how n_position works
+        n_position = len_max_seq + 1
+
+        self.word_emb = nn.Embedding(
+            n_vocab, d_word_vec, padding_idx=Constants.PAD)
+
+        self.position_enc = nn.Embedding.from_pretrained(
+            get_sinusoid_encoding_table(n_position, d_word_vec, padding_idx=0),
+            freeze=True)
+
+        self.layer_stack = nn.ModuleList([
+            DecoderLayer_LM(d_model, d_inner, n_head, d_k, d_v, dropout=dropout)
+            for _ in range(n_layers)])
+
+    def forward(self, seq, pos, return_attns=False):
+
+        dec_slf_attn_list = []
+
+        # -- Prepare masks
+        non_pad_mask = get_non_pad_mask(seq)
+
+        slf_attn_mask_subseq = get_subsequent_mask(seq)
+
+        slf_attn_mask_keypad = get_attn_key_pad_mask(seq_k=seq, seq_q=seq)
+        slf_attn_mask = (slf_attn_mask_keypad + slf_attn_mask_subseq).gt(0)
+
+        # -- Forward
+        dec_output = self.word_emb(seq) + self.position_enc(pos)
+
+        for dec_layer in self.layer_stack:
+            dec_output, dec_slf_attn = dec_layer(
+                dec_output,
+                non_pad_mask=non_pad_mask,
+                slf_attn_mask=slf_attn_mask)
+
+            if return_attns:
+                dec_slf_attn_list += [dec_slf_attn]
+
+        if return_attns:
+            return dec_output, dec_slf_attn_list
+        return dec_output,
+
+class Transformer_LM(nn.Module):
+    ''' A sequence to sequence model with attention mechanism. '''
+
+    def __init__(
+            self,
+            n_vocab, len_max_seq,
+            d_word_vec=512, d_model=512, d_inner=2048,
+            n_layers=6, n_head=8, d_k=64, d_v=64, dropout=0.1,
+            tgt_emb_prj_weight_sharing=True):
+
+        super().__init__()
+
+        self.decoder = Decoder_LM(
+            n_vocab=n_vocab, len_max_seq=len_max_seq,
+            d_word_vec=d_word_vec, d_model=d_model, d_inner=d_inner,
+            n_layers=n_layers, n_head=n_head, d_k=d_k, d_v=d_v,
+            dropout=dropout)
+
+        self.tgt_word_prj = nn.Linear(d_model, n_vocab, bias=False)
+        nn.init.xavier_normal_(self.tgt_word_prj.weight)
+
+        assert d_model == d_word_vec, \
+        'To facilitate the residual connections, \
+         the dimensions of all module outputs shall be the same.'
+
+        #TODO Check how they share parameters if they have reversed dimensions
+        if tgt_emb_prj_weight_sharing:
+            # Share the weight matrix between target word embedding & the final logit dense layer
+            self.tgt_word_prj.weight = self.decoder.tgt_word_emb.weight
+            self.x_logit_scale = (d_model ** -0.5)
+        else:
+            self.x_logit_scale = 1.
+
+    def forward(self, seq, pos):
+        #TODO Why
+        seq, pos = seq[:, :-1], pos[:, :-1]
+
+        dec_output, *_ = self.decoder(seq, pos)
         seq_logit = self.tgt_word_prj(dec_output) * self.x_logit_scale
 
         return seq_logit.view(-1, seq_logit.size(2))
