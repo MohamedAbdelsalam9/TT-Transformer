@@ -107,11 +107,11 @@ def eval_epoch(model, validation_data, device):
                 desc='  - (Validation) ', leave=False):
 
             # prepare data
-            src_seq, src_pos, tgt_seq, tgt_pos = map(lambda x: x.to(device), batch)
-            gold = tgt_seq[:, 1:]
+            seq, pos = map(lambda x: x.to(device), batch)
+            gold = seq[:, 1:]
 
             # forward
-            pred = model(src_seq, src_pos, tgt_seq, tgt_pos)
+            pred = model(seq, pos)
             loss, n_correct = cal_performance(pred, gold, smoothing=False)
 
             # note keeping
