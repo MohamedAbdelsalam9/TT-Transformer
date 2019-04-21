@@ -3,6 +3,7 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 from transformer.Modules import ScaledDotProductAttention
+from t3nsor.layers import TTLinear
 
 __author__ = "Yu-Hsiang Huang"
 
@@ -66,8 +67,10 @@ class PositionwiseFeedForward(nn.Module):
 
     def __init__(self, d_in, d_hid, dropout=0.1):
         super().__init__()
-        self.w_1 = nn.Linear(d_in, d_hid)
-        self.w_2 = nn.Linear(d_hid, d_in)
+        self.w_1 = TTLinear(d_in, d_hid, bias=True, init=None, shape=None, auto_shapes=True, d=4,
+                            tt_rank=3)
+        self.w_2 = TTLinear(d_hid, d_in, bias=True, init=None, shape=None, auto_shapes=True, d=4,
+                            tt_rank=3)
         self.layer_norm = nn.LayerNorm(d_in)
         self.dropout = nn.Dropout(dropout)
 
