@@ -82,7 +82,7 @@ def tt_dense_matmul(tt_matrix_a, matrix_b):
         curr_core = tt_matrix_a.tt_cores[core_idx]
         # On the k = core_idx iteration, after applying einsum the shape of data
         # becomes ik x (ik-1..., id-1, K, j0, ..., jk-1) x rank_k
-        data = torch.einsum('aijb,rjb->ira', curr_core, data)
+        data = torch.einsum('aijb,rjb->ira', [curr_core, data])
         if core_idx > 0:
           # After reshape the shape of data becomes
           # (ik, ..., id-1, K, j0, ..., jk-2) x jk-1 x rank_k
