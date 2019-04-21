@@ -218,10 +218,14 @@ def main():
 
     parser.add_argument('-no_cuda', action='store_true')
     parser.add_argument('-label_smoothing', action='store_true')
+    parser.add_argument('-seed', type=int, default=None)
 
     opt = parser.parse_args()
     opt.cuda = not opt.no_cuda
     opt.d_word_vec = opt.d_model
+
+    if opt.seed is not None:
+        torch.random.manual_seed(opt.seed)
 
     #========= Loading Dataset =========#
     data = torch.load(opt.data)
