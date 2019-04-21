@@ -68,9 +68,9 @@ class PositionwiseFeedForward(nn.Module):
     def __init__(self, d_in, d_hid, dropout=0.1):
         super().__init__()
         self.w_1 = TTLinear(d_in, d_hid, bias=True, init=None, shape=None, auto_shapes=True, d=4,
-                            tt_rank=3)
+                            tt_rank=1)
         self.w_2 = TTLinear(d_hid, d_in, bias=True, init=None, shape=None, auto_shapes=True, d=4,
-                            tt_rank=3)
+                            tt_rank=1)
         self.layer_norm = nn.LayerNorm(d_in)
         self.dropout = nn.Dropout(dropout)
 
