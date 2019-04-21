@@ -4,6 +4,7 @@ import torch.nn as nn
 import numpy as np
 import transformer.Constants as Constants
 from transformer.Layers import EncoderLayer, DecoderLayer, DecoderLayer_LM
+from t3nsor.layers import TTEmbedding
 
 __author__ = "Yu-Hsiang Huang"
 
@@ -64,8 +65,11 @@ class Encoder(nn.Module):
 
         n_position = len_max_seq + 1
 
-        self.src_word_emb = nn.Embedding(
-            n_src_vocab, d_word_vec, padding_idx=Constants.PAD)
+        # self.src_word_emb = nn.Embedding(
+        #     n_src_vocab, d_word_vec, padding_idx=Constants.PAD)
+
+        self.src_word_emb = TTEmbedding(self, shape=None, voc_size=n_src_vocab, emb_size=d_word_vec,
+                                        auto_shapes=True, d=3, tt_rank=8, padding_idx=Constants.PAD)
 
         self.position_enc = nn.Embedding.from_pretrained(
             get_sinusoid_encoding_table(n_position, d_word_vec, padding_idx=0),
@@ -109,6 +113,11 @@ class Decoder(nn.Module):
 
         super().__init__()
         n_position = len_max_seq + 1
+
+        # self.tgt_word_emb = nn.Embedding(
+        #     n_tgt_vocab, d_word_vec, padding_idx=Constants.PAD)
+        self.tgt_word_emb = TTEmbedding(self, shape=None, voc_size=n_src_vocab, emb_size=d_word_vec,
+                    auto_shapes=True, d=3, tt_rank=8, padding_idx=Constants.PAD)
 
         self.tgt_word_emb = nn.Embedding(
             n_tgt_vocab, d_word_vec, padding_idx=Constants.PAD)
