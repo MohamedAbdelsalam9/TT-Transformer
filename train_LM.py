@@ -47,7 +47,7 @@ def cal_loss(pred, gold, smoothing):
         loss = -(one_hot * log_prb).sum(dim=1)
         loss = loss.masked_select(non_pad_mask).sum()  # average later
     else:
-        loss = F.cross_entropy(pred, gold, ignore_index=Constants.PAD, reduction='mean') ####
+        loss = F.cross_entropy(pred, gold, ignore_index=Constants.PAD, reduction='sum')
 
     return loss
 
@@ -60,7 +60,6 @@ def train_epoch(model, training_data, optimizer, device, smoothing):
     total_loss = 0
     n_word_total = 0
     n_word_correct = 0
-    n_batch = 0  ####
 
     for batch in tqdm(
             training_data, mininterval=2,
@@ -88,11 +87,8 @@ def train_epoch(model, training_data, optimizer, device, smoothing):
         n_word = non_pad_mask.sum().item()
         n_word_total += n_word
         n_word_correct += n_correct
-        n_batch += 1  ####
 
-    ####TODO potential issue with perplexity calculation
-    # loss_per_word = total_loss/n_word_total
-    loss_per_word = total_loss / n_batch  ####
+    loss_per_word = total_loss/n_word_total
     accuracy = n_word_correct/n_word_total
     return loss_per_word, accuracy
 
