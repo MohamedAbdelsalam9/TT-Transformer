@@ -104,7 +104,6 @@ def eval_epoch(model, validation_data, device):
     total_loss = 0
     n_word_total = 0
     n_word_correct = 0
-    n_batch = 0  ####
 
     with torch.no_grad():
         for batch in tqdm(
@@ -126,11 +125,8 @@ def eval_epoch(model, validation_data, device):
             n_word = non_pad_mask.sum().item()
             n_word_total += n_word
             n_word_correct += n_correct
-            n_batch += 1  ####
 
-    ####TODO potential issue with perplexity calculation
-    # loss_per_word = total_loss/n_word_total
-    loss_per_word = total_loss / n_batch  ####
+    loss_per_word = total_loss/n_word_total
     accuracy = n_word_correct/n_word_total
     return loss_per_word, accuracy
 
