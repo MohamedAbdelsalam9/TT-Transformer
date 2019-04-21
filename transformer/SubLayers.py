@@ -67,17 +67,22 @@ class PositionwiseFeedForward(nn.Module):
 
     def __init__(self, d_in, d_hid, dropout=0.1):
         super().__init__()
+        # self.w_1 = nn.Linear(d_in, d_hid)
+        # self.w_2 = nn.Linear(d_in, d_hid)
         self.w_1 = TTLinear(d_in, d_hid, bias=True, init=None, shape=None, auto_shapes=True, d=4,
-                            tt_rank=1)
+                            tt_rank=3)
         self.w_2 = TTLinear(d_hid, d_in, bias=True, init=None, shape=None, auto_shapes=True, d=4,
-                            tt_rank=1)
+                            tt_rank=3)
         self.layer_norm = nn.LayerNorm(d_in)
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
         residual = x
-        output = x
+        batch_size = x.shape[0]
+        seq_len = x.shape[1]
+        output = x.view(batch_size*seq_len, -1)  # To apply Fully Connected position-wise
         output = self.w_2(F.relu(self.w_1(output)))
+        output = output.view(batch_size, seq_len, -1)
         output = self.dropout(output)
         output = self.layer_norm(output + residual)
         return output
