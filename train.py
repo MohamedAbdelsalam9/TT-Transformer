@@ -16,6 +16,8 @@ from dataset import TranslationDataset, paired_collate_fn
 from transformer.Models import Transformer
 from transformer.Optim import ScheduledOptim
 from summary import summary
+import io
+from contextlib import redirect_stdout
 
 def cal_performance(pred, gold, smoothing=False):
     ''' Apply label smoothing if needed '''
@@ -141,8 +143,8 @@ def train(model, training_data, validation_data, optimizer, device, opt):
             log_train_file, log_valid_file))
 
         with open(log_train_file, 'w') as log_tf, open(log_valid_file, 'w') as log_vf:
-            log_tf.write('epoch,loss,ppl,accuracy\n')
-            log_vf.write('epoch,loss,ppl,accuracy\n')
+            log_tf.write('epoch,loss,ppl,accuracy,elapse\n')
+            log_vf.write('epoch,loss,ppl,accuracy,elapse\n')
 
     valid_accus = []
     for epoch_i in range(opt.epoch):
@@ -183,12 +185,12 @@ def train(model, training_data, validation_data, optimizer, device, opt):
 
         if log_train_file and log_valid_file:
             with open(log_train_file, 'a') as log_tf, open(log_valid_file, 'a') as log_vf:
-                log_tf.write('{epoch},{loss: 8.5f},{ppl: 8.5f},{accu:3.3f}\n'.format(
+                log_tf.write('{epoch},{loss: 8.5f},{ppl: 8.5f},{accu:3.3f}, {elapse:3.3f} min\n'.format(
                     epoch=epoch_i, loss=train_loss,
-                    ppl=math.exp(min(train_loss, 100)), accu=100*train_accu))
-                log_vf.write('{epoch},{loss: 8.5f},{ppl: 8.5f},{accu:3.3f}\n'.format(
+                    ppl=math.exp(min(train_loss, 100)), accu=100*train_accu, elapse=(time.time()-start)/60)))
+                log_vf.write('{epoch},{loss: 8.5f},{ppl: 8.5f},{accu:3.3f}, {elapse:3.3f} min\n'.format(
                     epoch=epoch_i, loss=valid_loss,
-                    ppl=math.exp(min(valid_loss, 100)), accu=100*valid_accu))
+                    ppl=math.exp(min(valid_loss, 100)), accu=100*valid_accu, elapse=(time.time()-start)/60)))
 
 def main():
     ''' Main function '''
@@ -245,8 +247,6 @@ def main():
         assert training_data.dataset.src_word2idx == training_data.dataset.tgt_word2idx, \
             'The src/tgt word2idx table are different but asked to share word embedding.'
 
-    print(opt)
-
     device = torch.device('cuda' if opt.cuda else 'cpu')
     transformer = Transformer(
         opt.src_vocab_size,
@@ -272,7 +272,17 @@ def main():
             betas=(0.9, 0.98), eps=1e-09),
         opt.d_model, opt.n_warmup_steps)
 
-    summary(transformer, [[opt.max_token_seq_len] for i in range(4)], dtype="long")
+    # Print the model architecture and hyperparameters
+    f = io.StringIO()
+    with redirect_stdout(f):
+        print(opt)
+        summary(transformer, [[opt.max_token_seq_len] for i in range(4)], dtype="long")
+    architecture_summary = f.getvalue()
+    print(architecture_summary)
+    if opt.log:
+        log_architecture_file = opt.log + '.architecture.log'
+        with open(log_architecture_file, 'w') as log_a:
+            log_a.write(architecture_summary)
 
     train(transformer, training_data, validation_data, optimizer, device, opt)
 
