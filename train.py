@@ -187,10 +187,10 @@ def train(model, training_data, validation_data, optimizer, device, opt):
             with open(log_train_file, 'a') as log_tf, open(log_valid_file, 'a') as log_vf:
                 log_tf.write('{epoch},{loss: 8.5f},{ppl: 8.5f},{accu:3.3f}, {elapse:3.3f} min\n'.format(
                     epoch=epoch_i, loss=train_loss,
-                    ppl=math.exp(min(train_loss, 100)), accu=100*train_accu, elapse=(time.time()-start)/60)))
+                    ppl=math.exp(min(train_loss, 100)), accu=100*train_accu, elapse=(time.time()-start)/60))
                 log_vf.write('{epoch},{loss: 8.5f},{ppl: 8.5f},{accu:3.3f}, {elapse:3.3f} min\n'.format(
                     epoch=epoch_i, loss=valid_loss,
-                    ppl=math.exp(min(valid_loss, 100)), accu=100*valid_accu, elapse=(time.time()-start)/60)))
+                    ppl=math.exp(min(valid_loss, 100)), accu=100*valid_accu, elapse=(time.time()-start)/60))
 
 def main():
     ''' Main function '''
