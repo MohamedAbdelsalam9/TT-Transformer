@@ -31,8 +31,7 @@ class MultiHeadAttention(nn.Module):
             self.fc = TTLinear(n_head*d_v, d_model, bias=True, auto_shapes=True, d=n_tt_dim, tt_rank=tt_rank)
         else:
             self.fc = nn.Linear(n_head*d_v, d_model)
-
-        nn.init.xavier_normal_(self.fc.weight)
+            nn.init.xavier_normal_(self.fc.weight)
 
         self.dropout = nn.Dropout(dropout)
 
@@ -61,7 +60,8 @@ class MultiHeadAttention(nn.Module):
         output = output.view(n_head, sz_b, len_q, d_v)
         output = output.permute(1, 2, 0, 3).contiguous().view(sz_b, len_q, -1) # b x lq x (n*dv)
 
-        output = self.dropout(self.fc(output))
+        output = output.contiguous().view(sz_b*len_q, -1)
+        output = self.dropout(self.fc(output).contiguous().view(sz_b, len_q, -1))
         output = self.layer_norm(output + residual)
 
         return output, attn

@@ -15,6 +15,7 @@ import transformer.Constants as Constants
 from dataset import TranslationDataset, paired_collate_fn
 from transformer.Models import Transformer
 from transformer.Optim import ScheduledOptim
+from summary import summary
 
 def cal_performance(pred, gold, smoothing=False):
     ''' Apply label smoothing if needed '''
@@ -219,7 +220,7 @@ def main():
     parser.add_argument('-no_cuda', action='store_true')
     parser.add_argument('-label_smoothing', action='store_true')
     parser.add_argument('-seed', type=int, default=None)
-    parser.add_argument('-use_TT', default=False)
+    parser.add_argument('-use_TT', action='store_true')
     parser.add_argument('-n_tt_dim', type=int, default=3)
     parser.add_argument('-tt_rank', type=int, default=8)
 
@@ -271,7 +272,9 @@ def main():
             betas=(0.9, 0.98), eps=1e-09),
         opt.d_model, opt.n_warmup_steps)
 
-    train(transformer, training_data, validation_data, optimizer, device ,opt)
+    summary(transformer, [[opt.max_token_seq_len] for i in range(4)], dtype="long")
+
+    train(transformer, training_data, validation_data, optimizer, device, opt)
 
 
 def prepare_dataloaders(data, opt):
