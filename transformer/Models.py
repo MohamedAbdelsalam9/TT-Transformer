@@ -58,7 +58,8 @@ class Encoder(nn.Module):
             self,
             n_src_vocab, len_max_seq, d_word_vec,
             n_layers, n_head, d_k, d_v,
-            d_model, d_inner, dropout=0.1):
+            d_model, d_inner, dropout=0.1,
+            use_tt=False, n_tt_dim=3, tt_rank=8):
 
         super().__init__()
 
@@ -72,7 +73,8 @@ class Encoder(nn.Module):
             freeze=True)
 
         self.layer_stack = nn.ModuleList([
-            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout)
+            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout,
+                         use_tt=use_tt, n_tt_dim=n_tt_dim, tt_rank=tt_rank)
             for _ in range(n_layers)])
 
     def forward(self, src_seq, src_pos, return_attns=False):
@@ -105,7 +107,8 @@ class Decoder(nn.Module):
             self,
             n_tgt_vocab, len_max_seq, d_word_vec,
             n_layers, n_head, d_k, d_v,
-            d_model, d_inner, dropout=0.1):
+            d_model, d_inner, dropout=0.1,
+            use_tt=False, n_tt_dim=3, tt_rank=8):
 
         super().__init__()
         n_position = len_max_seq + 1
@@ -118,7 +121,8 @@ class Decoder(nn.Module):
             freeze=True)
 
         self.layer_stack = nn.ModuleList([
-            DecoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout)
+            DecoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout,
+                         use_tt=use_tt, n_tt_dim=n_tt_dim, tt_rank=tt_rank)
             for _ in range(n_layers)])
 
     def forward(self, tgt_seq, tgt_pos, src_seq, enc_output, return_attns=False):
@@ -160,8 +164,8 @@ class Transformer(nn.Module):
             n_src_vocab, n_tgt_vocab, len_max_seq,
             d_word_vec=512, d_model=512, d_inner=2048,
             n_layers=6, n_head=8, d_k=64, d_v=64, dropout=0.1,
-            tgt_emb_prj_weight_sharing=True,
-            emb_src_tgt_weight_sharing=True):
+            tgt_emb_prj_weight_sharing=True, emb_src_tgt_weight_sharing=True,
+            use_tt=False, n_tt_dim=3, tt_rank=8):
 
         super().__init__()
 
@@ -169,13 +173,13 @@ class Transformer(nn.Module):
             n_src_vocab=n_src_vocab, len_max_seq=len_max_seq,
             d_word_vec=d_word_vec, d_model=d_model, d_inner=d_inner,
             n_layers=n_layers, n_head=n_head, d_k=d_k, d_v=d_v,
-            dropout=dropout)
+            dropout=dropout, use_tt=use_tt, n_tt_dim=n_tt_dim, tt_rank=tt_rank)
 
         self.decoder = Decoder(
             n_tgt_vocab=n_tgt_vocab, len_max_seq=len_max_seq,
             d_word_vec=d_word_vec, d_model=d_model, d_inner=d_inner,
             n_layers=n_layers, n_head=n_head, d_k=d_k, d_v=d_v,
-            dropout=dropout)
+            dropout=dropout, use_tt=use_tt, n_tt_dim=n_tt_dim, tt_rank=tt_rank)
 
         self.tgt_word_prj = nn.Linear(d_model, n_tgt_vocab, bias=False)
         nn.init.xavier_normal_(self.tgt_word_prj.weight)
