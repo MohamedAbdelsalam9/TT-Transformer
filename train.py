@@ -276,6 +276,7 @@ def main():
     f = io.StringIO()
     with redirect_stdout(f):
         print(opt)
+        print (f"Number of trainable parameters: {sum(p.numel() for p in transformer.parameters() if p.requires_grad)")
         summary(transformer, [[opt.max_token_seq_len] for i in range(4)], dtype="long")
     architecture_summary = f.getvalue()
     print(architecture_summary)
