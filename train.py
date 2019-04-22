@@ -219,6 +219,9 @@ def main():
     parser.add_argument('-no_cuda', action='store_true')
     parser.add_argument('-label_smoothing', action='store_true')
     parser.add_argument('-seed', type=int, default=None)
+    parser.add_argument('-use_TT', default=False)
+    parser.add_argument('-n_tt_dim', type=int, default=3)
+    parser.add_argument('-tt_rank', type=int, default=8)
 
     opt = parser.parse_args()
     opt.cuda = not opt.no_cuda
@@ -257,7 +260,10 @@ def main():
         d_inner=opt.d_inner_hid,
         n_layers=opt.n_layers,
         n_head=opt.n_head,
-        dropout=opt.dropout).to(device)
+        dropout=opt.dropout,
+        use_tt=opt.use_TT,
+        n_tt_dim=opt.n_tt_dim,
+        tt_rank=opt.tt_rank).to(device)
 
     optimizer = ScheduledOptim(
         optim.Adam(
