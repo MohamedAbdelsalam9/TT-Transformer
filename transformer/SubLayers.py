@@ -9,8 +9,8 @@ __author__ = "Yu-Hsiang Huang"
 
 class MultiHeadAttention(nn.Module):
     ''' Multi-Head Attention module '''
-
-    def __init__(self, n_head, d_model, d_k, d_v, dropout=0.1):
+    ## TODO apply tensorization of MultiHeadAttention
+    def __init__(self, n_head, d_model, d_k, d_v, dropout=0.1, use_tt=False, n_tt_dim=3, tt_rank=8):
         super().__init__()
 
         self.n_head = n_head
@@ -27,7 +27,11 @@ class MultiHeadAttention(nn.Module):
         self.attention = ScaledDotProductAttention(temperature=np.power(d_k, 0.5))
         self.layer_norm = nn.LayerNorm(d_model)
 
-        self.fc = nn.Linear(n_head * d_v, d_model)
+        if use_tt:
+            self.fc = TTLinear(n_head*d_v, d_model, bias=True, auto_shapes=True, d=n_tt_dim, tt_rank=tt_rank)
+        else:
+            self.fc = nn.Linear(n_head*d_v, d_model)
+
         nn.init.xavier_normal_(self.fc.weight)
 
         self.dropout = nn.Dropout(dropout)
@@ -65,14 +69,15 @@ class MultiHeadAttention(nn.Module):
 class PositionwiseFeedForward(nn.Module):
     ''' A two-feed-forward-layer module '''
 
-    def __init__(self, d_in, d_hid, dropout=0.1):
+    def __init__(self, d_in, d_hid, dropout=0.1, use_tt=False, n_tt_dim=3, tt_rank=8):
         super().__init__()
-        # self.w_1 = nn.Linear(d_in, d_hid)
-        # self.w_2 = nn.Linear(d_hid, d_in)
-        self.w_1 = TTLinear(d_in, d_hid, bias=True, init=None, shape=None, auto_shapes=True, d=3,
-                            tt_rank=1)
-        self.w_2 = TTLinear(d_hid, d_in, bias=True, init=None, shape=None, auto_shapes=True, d=3,
-                            tt_rank=1)
+        if use_tt:
+            self.w_1 = TTLinear(d_in, d_hid, bias=True, auto_shapes=True, d=n_tt_dim, tt_rank=tt_rank)
+            self.w_2 = TTLinear(d_hid, d_in, bias=True, auto_shapes=True, d=n_tt_dim, tt_rank=tt_rank)
+        else:
+            self.w_1 = nn.Linear(d_in, d_hid)
+            self.w_2 = nn.Linear(d_hid, d_in)
+
         self.layer_norm = nn.LayerNorm(d_in)
         self.dropout = nn.Dropout(dropout)
 
