@@ -19,13 +19,13 @@ class MultiHeadAttention(nn.Module):
 
         # TODO create normal initialization for TTLinear
         if Constants.attention_ in tt_params:
-            self.w_qs = TTLinear(d_model, d_model * d_k, bias=True, auto_shapes=True,
+            self.w_qs = TTLinear(d_model, d_model * d_k, auto_shapes=True,
                                  d=tt_params[Constants.attention_]["n_tt_cores"],
                                  tt_rank=tt_params[Constants.attention_]["tt_rank"])
-            self.w_ks = TTLinear(d_model, d_model * d_k, bias=True, auto_shapes=True,
+            self.w_ks = TTLinear(d_model, d_model * d_k, auto_shapes=True,
                                  d=tt_params[Constants.attention_]["n_tt_cores"],
                                  tt_rank=tt_params[Constants.attention_]["tt_rank"])
-            self.w_vs = TTLinear(d_model, d_model * d_v, bias=True, auto_shapes=True,
+            self.w_vs = TTLinear(d_model, d_model * d_v, auto_shapes=True,
                                  d=tt_params[Constants.attention_]["n_tt_cores"],
                                  tt_rank=tt_params[Constants.attention_]["tt_rank"])
         else:
@@ -39,8 +39,13 @@ class MultiHeadAttention(nn.Module):
         self.attention = ScaledDotProductAttention(temperature=np.power(d_k, 0.5))
         self.layer_norm = nn.LayerNorm(d_model)
 
-        self.fc = nn.Linear(n_head*d_v, d_model)
-        nn.init.xavier_normal_(self.fc.weight)
+        if Constants.attention_ in tt_params:
+            self.fc = TTLinear(n_head * d_v, d_model, auto_shapes=True,
+                               d=tt_params[Constants.attention_]["n_tt_cores"],
+                               tt_rank=tt_params[Constants.attention_]["tt_rank"])
+        else:
+            self.fc = nn.Linear(n_head*d_v, d_model)
+            nn.init.xavier_normal_(self.fc.weight)
 
         self.dropout = nn.Dropout(dropout)
 
