@@ -4,6 +4,7 @@ import torch.nn as nn
 import numpy as np
 import transformer.Constants as Constants
 from transformer.Layers import EncoderLayer, DecoderLayer, DecoderLayer_LM
+from t3nsor.layers import TTLinear, TTEmbedding
 
 __author__ = "Yu-Hsiang Huang"
 
@@ -59,22 +60,27 @@ class Encoder(nn.Module):
             n_src_vocab, len_max_seq, d_word_vec,
             n_layers, n_head, d_k, d_v,
             d_model, d_inner, dropout=0.1,
-            use_tt=False, n_tt_dim=3, tt_rank=8):
+            tt_params={}):
 
         super().__init__()
 
         n_position = len_max_seq + 1
 
-        self.src_word_emb = nn.Embedding(
-            n_src_vocab, d_word_vec, padding_idx=Constants.PAD)
+        if Constants.embedding_ in tt_params:
+            self.src_word_emb = TTEmbedding(
+                voc_size=n_src_vocab, emb_size=d_word_vec, auto_shapes=True,
+                d=tt_params[Constants.embedding_]["n_tt_cores"], tt_rank=tt_params[Constants.embedding_]["tt_rank"],
+                padding_idx=Constants.PAD)
+        else:
+            self.src_word_emb = nn.Embedding(
+                n_src_vocab, d_word_vec, padding_idx=Constants.PAD)
 
         self.position_enc = nn.Embedding.from_pretrained(
             get_sinusoid_encoding_table(n_position, d_word_vec, padding_idx=0),
             freeze=True)
 
         self.layer_stack = nn.ModuleList([
-            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout,
-                         use_tt=use_tt, n_tt_dim=n_tt_dim, tt_rank=tt_rank)
+            EncoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout, tt_params=tt_params)
             for _ in range(n_layers)])
 
     def forward(self, src_seq, src_pos, return_attns=False):
@@ -108,21 +114,26 @@ class Decoder(nn.Module):
             n_tgt_vocab, len_max_seq, d_word_vec,
             n_layers, n_head, d_k, d_v,
             d_model, d_inner, dropout=0.1,
-            use_tt=False, n_tt_dim=3, tt_rank=8):
+            tt_params={}):
 
         super().__init__()
         n_position = len_max_seq + 1
 
-        self.tgt_word_emb = nn.Embedding(
-            n_tgt_vocab, d_word_vec, padding_idx=Constants.PAD)
+        if Constants.embedding_ in tt_params:
+            self.tgt_word_emb = TTEmbedding(
+                voc_size=n_tgt_vocab, emb_size=d_word_vec, auto_shapes=True,
+                d=tt_params[Constants.embedding_]["n_tt_cores"], tt_rank=tt_params[Constants.embedding_]["tt_rank"],
+                padding_idx=Constants.PAD)
+        else:
+            self.tgt_word_emb = nn.Embedding(
+                n_tgt_vocab, d_word_vec, padding_idx=Constants.PAD)
 
         self.position_enc = nn.Embedding.from_pretrained(
             get_sinusoid_encoding_table(n_position, d_word_vec, padding_idx=0),
             freeze=True)
 
         self.layer_stack = nn.ModuleList([
-            DecoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout,
-                         use_tt=use_tt, n_tt_dim=n_tt_dim, tt_rank=tt_rank)
+            DecoderLayer(d_model, d_inner, n_head, d_k, d_v, dropout=dropout, tt_params=tt_params)
             for _ in range(n_layers)])
 
     def forward(self, tgt_seq, tgt_pos, src_seq, enc_output, return_attns=False):
@@ -165,7 +176,7 @@ class Transformer(nn.Module):
             d_word_vec=512, d_model=512, d_inner=2048,
             n_layers=6, n_head=8, d_k=64, d_v=64, dropout=0.1,
             tgt_emb_prj_weight_sharing=True, emb_src_tgt_weight_sharing=True,
-            use_tt=False, n_tt_dim=3, tt_rank=8):
+            tt_params = {}):
 
         super().__init__()
 
@@ -173,16 +184,21 @@ class Transformer(nn.Module):
             n_src_vocab=n_src_vocab, len_max_seq=len_max_seq,
             d_word_vec=d_word_vec, d_model=d_model, d_inner=d_inner,
             n_layers=n_layers, n_head=n_head, d_k=d_k, d_v=d_v,
-            dropout=dropout, use_tt=use_tt, n_tt_dim=n_tt_dim, tt_rank=tt_rank)
+            dropout=dropout, tt_params=tt_params)
 
         self.decoder = Decoder(
             n_tgt_vocab=n_tgt_vocab, len_max_seq=len_max_seq,
             d_word_vec=d_word_vec, d_model=d_model, d_inner=d_inner,
             n_layers=n_layers, n_head=n_head, d_k=d_k, d_v=d_v,
-            dropout=dropout, use_tt=use_tt, n_tt_dim=n_tt_dim, tt_rank=tt_rank)
+            dropout=dropout, tt_params=tt_params)
 
-        self.tgt_word_prj = nn.Linear(d_model, n_tgt_vocab, bias=False)
-        nn.init.xavier_normal_(self.tgt_word_prj.weight)
+        if Constants.embedding_ in tt_params:
+            self.tgt_word_prj = TTLinear(d_model, n_tgt_vocab, bias=False, auto_shapes=True,
+                                         d=tt_params[Constants.embedding_]["n_tt_cores"],
+                                         tt_rank=tt_params[Constants.embedding_]["tt_rank"])
+        else:
+            self.tgt_word_prj = nn.Linear(d_model, n_tgt_vocab, bias=False)
+            nn.init.xavier_normal_(self.tgt_word_prj.weight)
 
         assert d_model == d_word_vec, \
         'To facilitate the residual connections, \

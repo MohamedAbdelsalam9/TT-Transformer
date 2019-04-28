@@ -4,34 +4,43 @@ import torch.nn as nn
 import torch.nn.functional as F
 from transformer.Modules import ScaledDotProductAttention
 from t3nsor.layers import TTLinear
+import transformer.Constants as Constants
 
 __author__ = "Yu-Hsiang Huang"
 
 class MultiHeadAttention(nn.Module):
     ''' Multi-Head Attention module '''
-    ## TODO apply tensorization of MultiHeadAttention
-    def __init__(self, n_head, d_model, d_k, d_v, dropout=0.1, use_tt=False, n_tt_dim=3, tt_rank=8):
+    def __init__(self, n_head, d_model, d_k, d_v, dropout=0.1, tt_params={}):
         super().__init__()
 
         self.n_head = n_head
         self.d_k = d_k
         self.d_v = d_v
 
-        self.w_qs = nn.Linear(d_model, n_head * d_k)
-        self.w_ks = nn.Linear(d_model, n_head * d_k)
-        self.w_vs = nn.Linear(d_model, n_head * d_v)
-        nn.init.normal_(self.w_qs.weight, mean=0, std=np.sqrt(2.0 / (d_model + d_k)))
-        nn.init.normal_(self.w_ks.weight, mean=0, std=np.sqrt(2.0 / (d_model + d_k)))
-        nn.init.normal_(self.w_vs.weight, mean=0, std=np.sqrt(2.0 / (d_model + d_v)))
+        # TODO create normal initialization for TTLinear
+        if Constants.attention_ in tt_params:
+            self.w_qs = TTLinear(d_model, d_model * d_k, bias=True, auto_shapes=True,
+                                 d=tt_params[Constants.attention_]["n_tt_cores"],
+                                 tt_rank=tt_params[Constants.attention_]["tt_rank"])
+            self.w_ks = TTLinear(d_model, d_model * d_k, bias=True, auto_shapes=True,
+                                 d=tt_params[Constants.attention_]["n_tt_cores"],
+                                 tt_rank=tt_params[Constants.attention_]["tt_rank"])
+            self.w_vs = TTLinear(d_model, d_model * d_v, bias=True, auto_shapes=True,
+                                 d=tt_params[Constants.attention_]["n_tt_cores"],
+                                 tt_rank=tt_params[Constants.attention_]["tt_rank"])
+        else:
+            self.w_qs = nn.Linear(d_model, n_head * d_k)
+            self.w_ks = nn.Linear(d_model, n_head * d_k)
+            self.w_vs = nn.Linear(d_model, n_head * d_v)
+            nn.init.normal_(self.w_qs.weight, mean=0, std=np.sqrt(2.0 / (d_model + d_k)))
+            nn.init.normal_(self.w_ks.weight, mean=0, std=np.sqrt(2.0 / (d_model + d_k)))
+            nn.init.normal_(self.w_vs.weight, mean=0, std=np.sqrt(2.0 / (d_model + d_v)))
 
         self.attention = ScaledDotProductAttention(temperature=np.power(d_k, 0.5))
         self.layer_norm = nn.LayerNorm(d_model)
 
-        if use_tt:
-            self.fc = TTLinear(n_head*d_v, d_model, bias=True, auto_shapes=True, d=n_tt_dim, tt_rank=tt_rank)
-        else:
-            self.fc = nn.Linear(n_head*d_v, d_model)
-            nn.init.xavier_normal_(self.fc.weight)
+        self.fc = nn.Linear(n_head*d_v, d_model)
+        nn.init.xavier_normal_(self.fc.weight)
 
         self.dropout = nn.Dropout(dropout)
 
@@ -69,11 +78,15 @@ class MultiHeadAttention(nn.Module):
 class PositionwiseFeedForward(nn.Module):
     ''' A two-feed-forward-layer module '''
 
-    def __init__(self, d_in, d_hid, dropout=0.1, use_tt=False, n_tt_dim=3, tt_rank=8):
+    def __init__(self, d_in, d_hid, dropout=0.1, tt_params={}):
         super().__init__()
-        if use_tt:
-            self.w_1 = TTLinear(d_in, d_hid, bias=True, auto_shapes=True, d=n_tt_dim, tt_rank=tt_rank)
-            self.w_2 = TTLinear(d_hid, d_in, bias=True, auto_shapes=True, d=n_tt_dim, tt_rank=tt_rank)
+        if Constants.pff_ in tt_params:
+            self.w_1 = TTLinear(d_in, d_hid, bias=True, auto_shapes=True,
+                                d=tt_params[Constants.pff_]["n_tt_cores"],
+                                tt_rank=tt_params[Constants.pff_]["tt_rank"])
+            self.w_2 = TTLinear(d_hid, d_in, bias=True, auto_shapes=True,
+                                d=tt_params[Constants.pff_]["n_tt_cores"],
+                                tt_rank=tt_params[Constants.pff_]["tt_rank"])
         else:
             self.w_1 = nn.Linear(d_in, d_hid)
             self.w_2 = nn.Linear(d_hid, d_in)

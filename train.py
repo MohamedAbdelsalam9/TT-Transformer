@@ -222,13 +222,20 @@ def main():
     parser.add_argument('-no_cuda', action='store_true')
     parser.add_argument('-label_smoothing', action='store_true')
     parser.add_argument('-seed', type=int, default=None)
-    parser.add_argument('-use_TT', action='store_true')
-    parser.add_argument('-n_tt_dim', type=int, default=3)
-    parser.add_argument('-tt_rank', type=int, default=8)
+    parser.add_argument('-use_TT', nargs='+', choices=[Constants.embedding_, Constants.pff_, Constants.attention_])
+    parser.add_argument('-n_tt_cores', nargs='+', type=int, default=3)
+    parser.add_argument('-tt_rank', nargs='+', type=int, default=8)
 
     opt = parser.parse_args()
     opt.cuda = not opt.no_cuda
     opt.d_word_vec = opt.d_model
+
+    # Parse TT Arguments
+    assert len(opt.use_TT) == len(opt.n_tt_cores), f"Specify the number of TT-cores for each of the {opt.use_TT}"
+    assert len(opt.use_TT) == len(opt.tt_rank), f"Specify the number of TT-rank for each of the {opt.use_TT}"
+    opt.tt_params = {}
+    for i in range(len(opt.use_TT)):
+        opt.tt_params[opt.use_TT[i]] = {"n_tt_cores": opt.n_tt_cores[i], "tt_rank": opt.tt_rank[i]}
 
     if opt.seed is not None:
         torch.random.manual_seed(opt.seed)
@@ -262,9 +269,7 @@ def main():
         n_layers=opt.n_layers,
         n_head=opt.n_head,
         dropout=opt.dropout,
-        use_tt=opt.use_TT,
-        n_tt_dim=opt.n_tt_dim,
-        tt_rank=opt.tt_rank).to(device)
+        tt_params=opt.tt_params).to(device)
 
     optimizer = ScheduledOptim(
         optim.Adam(
