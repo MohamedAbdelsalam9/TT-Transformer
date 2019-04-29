@@ -3,7 +3,7 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 from transformer.Modules import ScaledDotProductAttention
-from t3nsor.layers import TTLinear
+from t3nsor.layers import TTLinearSeq
 import transformer.Constants as Constants
 
 __author__ = "Yu-Hsiang Huang"
@@ -19,13 +19,13 @@ class MultiHeadAttention(nn.Module):
 
         # TODO create normal initialization for TTLinear
         if Constants.attention_ in tt_params:
-            self.w_qs = TTLinear(d_model, d_model * d_k, auto_shapes=True,
+            self.w_qs = TTLinearSeq(d_model, d_model * d_k, auto_shapes=True,
                                  d=tt_params[Constants.attention_]["n_tt_cores"],
                                  tt_rank=tt_params[Constants.attention_]["tt_rank"])
-            self.w_ks = TTLinear(d_model, d_model * d_k, auto_shapes=True,
+            self.w_ks = TTLinearSeq(d_model, d_model * d_k, auto_shapes=True,
                                  d=tt_params[Constants.attention_]["n_tt_cores"],
                                  tt_rank=tt_params[Constants.attention_]["tt_rank"])
-            self.w_vs = TTLinear(d_model, d_model * d_v, auto_shapes=True,
+            self.w_vs = TTLinearSeq(d_model, d_model * d_v, auto_shapes=True,
                                  d=tt_params[Constants.attention_]["n_tt_cores"],
                                  tt_rank=tt_params[Constants.attention_]["tt_rank"])
         else:
