@@ -231,11 +231,12 @@ def main():
     opt.d_word_vec = opt.d_model
 
     # Parse TT Arguments
-    assert len(opt.use_TT) == len(opt.n_tt_cores), f"Specify the number of TT-cores for each of the {opt.use_TT}"
-    assert len(opt.use_TT) == len(opt.tt_rank), f"Specify the number of TT-rank for each of the {opt.use_TT}"
     opt.tt_params = {}
-    for i in range(len(opt.use_TT)):
-        opt.tt_params[opt.use_TT[i]] = {"n_tt_cores": opt.n_tt_cores[i], "tt_rank": opt.tt_rank[i]}
+    if opt.use_TT:
+        assert len(opt.use_TT) == len(opt.n_tt_cores), f"Specify the number of TT-cores for each of the {opt.use_TT}"
+        assert len(opt.use_TT) == len(opt.tt_rank), f"Specify the number of TT-rank for each of the {opt.use_TT}"
+        for i in range(len(opt.use_TT)):
+            opt.tt_params[opt.use_TT[i]] = {"n_tt_cores": opt.n_tt_cores[i], "tt_rank": opt.tt_rank[i]}
 
     if opt.seed is not None:
         torch.random.manual_seed(opt.seed)
