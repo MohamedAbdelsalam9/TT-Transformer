@@ -63,10 +63,14 @@ def tt_dense_matmul(tt_matrix_a, matrix_b):
     ndims = tt_matrix_a.ndims
     a_columns = tt_matrix_a.shape[1]
     b_rows = matrix_b.shape[0]
+
+    print('tt_matrix_a shape: ', tt_matrix_a.shape)
+    print('matrix_b shape: ', matrix_b.shape)
+
     if a_columns is not None and b_rows is not None:
         if a_columns != b_rows:
-            raise ValueError('Arguments shapes should align got %d and %d instead.' %
-                       (tt_matrix_a.shape, matrix_b.shape))
+            raise ValueError('Arguments shapes should align got {} and {} instead.'.
+                    format(tt_matrix_a.shape, matrix_b.shape))
 
     a_shape = tt_matrix_a.shape
     a_raw_shape = tt_matrix_a.raw_shape

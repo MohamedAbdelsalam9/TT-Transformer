@@ -4,7 +4,7 @@ import torch.nn as nn
 import numpy as np
 import transformer.Constants as Constants
 from transformer.Layers import EncoderLayer, DecoderLayer, DecoderLayer_LM
-from t3nsor.layers import TTLinear, TTEmbedding
+from t3nsor.layers import TTLinear, TTEmbedding, TTLinearSeq
 
 __author__ = "Yu-Hsiang Huang"
 
@@ -193,7 +193,9 @@ class Transformer(nn.Module):
             dropout=dropout, tt_params=tt_params)
 
         if Constants.embedding_ in tt_params:
-            self.tgt_word_prj = TTLinear(d_model, n_tgt_vocab, bias=False, auto_shapes=True,
+            # if Embedding will be tt-factorized, then target word project should be as well,
+            # in order to enable weight sharing.
+            self.tgt_word_prj = TTLinearSeq(d_model, n_tgt_vocab, bias=False, auto_shapes=True,
                                          d=tt_params[Constants.embedding_]["n_tt_cores"],
                                          tt_rank=tt_params[Constants.embedding_]["tt_rank"])
         else:

@@ -43,8 +43,8 @@ class TTEmbedding(nn.Module):
         if init is None:
             init = t3.glorot_initializer(self.shape, tt_rank=tt_rank)
 
-        self.tt_matrix = init.to_parameter()
-        self.parameters = self.tt_matrix.parameter
+        self.weight = init.to_parameter()
+        self.parameters = self.weight.parameter
 
         # for p in self.parameters():
         #    p.name = 'tt_core'
@@ -62,14 +62,14 @@ class TTEmbedding(nn.Module):
 
         xshape = list(x.shape)
         xshape_new = xshape + [self.emb_size, ]
-        x = x.view(-1)
+        x = x.contiguous().view(-1)
 
         # x_ind = t3.ind2sub(self.voc_quant, x)
         # rows = t3.gather_rows(self.tt_matrix, x_ind)
 
         # rows = rows.view(x.shape[0], -1)
 
-        full = self.tt_matrix.full()
+        full = self.weight.full()
         rows = full[x]
 
         if self.padding_idx is not None:
@@ -81,6 +81,9 @@ class TTEmbedding(nn.Module):
 
 
 class TTLinear(nn.Module):
+    """
+    Handles linear transformation in tensor train format on inputs of dimension (batch_size, input_dim)
+    """
     def __init__(self, in_features=None, out_features=None, bias=True, init=None, shape=None,
                  auto_shapes=True, d=3, tt_rank=8, auto_shape_mode='ascending',
                  auto_shape_criterion='entropy',
@@ -111,17 +114,43 @@ class TTLinear(nn.Module):
             init = t3.glorot_initializer(shape, tt_rank=tt_rank)
 
         self.shape = shape
-        self.weight_t = t3.transpose(init).to_parameter()
-        self.parameters = self.weight_t.parameter
+        self.weight = t3.transpose(init).to_parameter()
+        self.parameters = self.weight.parameter
         if bias:
             self.bias = torch.nn.Parameter(1e-3 * torch.ones(out_features))
         else:
             self.register_parameter('bias', None)
 
     def forward(self, x):
-        weight_t = self.weight_t
+        weight_t = self.weight
         x_t = x.transpose(0, 1)
         if self.bias is None:
             return t3.tt_dense_matmul(weight_t, x_t).transpose(0, 1)
         else:
             return t3.tt_dense_matmul(weight_t, x_t).transpose(0, 1) + self.bias
+
+
+class TTLinearSeq(TTLinear):
+    """
+    TT-Linear module to handle linear transformation on inputs that are sequences (batch_size, seq_len, input_dim)
+    """
+    def __init__(self, in_features=None, out_features=None, bias=True, init=None, shape=None,
+                 auto_shapes=True, d=3, tt_rank=8, auto_shape_mode='ascending',
+                 auto_shape_criterion='entropy',
+                 ):
+        super(TTLinearSeq, self).__init__(in_features, out_features, bias, init, shape,
+                 auto_shapes, d, tt_rank, auto_shape_mode, auto_shape_criterion)
+
+    def forward(self, x):
+        # print('-------Start of TTLinearSeq forward pass--------')
+        # print('x shape before reshaping: ', x.shape)
+        batch_size = x.shape[0]
+        seq_len = x.shape[1]
+        output = x.contiguous().view(batch_size * seq_len, -1)
+        # print('x shape after reshaping: ', output.shape)
+        output = super(TTLinearSeq, self).forward(output)
+        # print('output shape after TTLinear: ', output.shape)
+        output = output.contiguous().view(batch_size, seq_len, -1)
+        # print('output shape after reshaping: ', output.shape)
+        # print('-------End of TTLinearSeq forward pass--------')
+        return output
