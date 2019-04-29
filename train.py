@@ -153,16 +153,16 @@ def train(model, training_data, validation_data, optimizer, device, opt):
         start = time.time()
         train_loss, train_accu = train_epoch(
             model, training_data, optimizer, device, smoothing=opt.label_smoothing)
-        print('  - (Training)   ppl: {ppl: 8.5f}, accuracy: {accu:3.3f} %, '\
+        print('  - (Training)   loss: {loss: 8.5f}, ppl: {ppl: 8.5f}, accuracy: {accu:3.3f} %, '\
               'elapse: {elapse:3.3f} min'.format(
-                  ppl=math.exp(min(train_loss, 100)), accu=100*train_accu,
+                  loss=train_loss, ppl=math.exp(min(train_loss, 100)), accu=100*train_accu,
                   elapse=(time.time()-start)/60))
 
         start = time.time()
         valid_loss, valid_accu = eval_epoch(model, validation_data, device)
-        print('  - (Validation) ppl: {ppl: 8.5f}, accuracy: {accu:3.3f} %, '\
+        print('  - (Validation) loss: {loss: 8.5f}, ppl: {ppl: 8.5f}, accuracy: {accu:3.3f} %, '\
                 'elapse: {elapse:3.3f} min'.format(
-                    ppl=math.exp(min(valid_loss, 100)), accu=100*valid_accu,
+                    loss=valid_loss, ppl=math.exp(min(valid_loss, 100)), accu=100*valid_accu,
                     elapse=(time.time()-start)/60))
 
         valid_accus += [valid_accu]
@@ -256,33 +256,33 @@ def main():
             'The src/tgt word2idx table are different but asked to share word embedding.'
 
     device = torch.device('cuda' if opt.cuda else 'cpu')
-    transformer = Transformer(
-        opt.src_vocab_size,
-        opt.tgt_vocab_size,
-        opt.max_token_seq_len,
-        tgt_emb_prj_weight_sharing=opt.proj_share_weight,
-        emb_src_tgt_weight_sharing=opt.embs_share_weight,
-        d_k=opt.d_k,
-        d_v=opt.d_v,
-        d_model=opt.d_model,
-        d_word_vec=opt.d_word_vec,
-        d_inner=opt.d_inner_hid,
-        n_layers=opt.n_layers,
-        n_head=opt.n_head,
-        dropout=opt.dropout,
-        tt_params=opt.tt_params).to(device)
-
-    optimizer = ScheduledOptim(
-        optim.Adam(
-            filter(lambda x: x.requires_grad, transformer.parameters()),
-            betas=(0.9, 0.98), eps=1e-09),
-        opt.d_model, opt.n_warmup_steps)
 
     # Print the model architecture and hyperparameters
     f = io.StringIO()
     with redirect_stdout(f):
         print(opt)
-        print (f"Number of trainable parameters: {sum(p.numel() for p in transformer.parameters() if p.requires_grad)}")
+        transformer = Transformer(
+            opt.src_vocab_size,
+            opt.tgt_vocab_size,
+            opt.max_token_seq_len,
+            tgt_emb_prj_weight_sharing=opt.proj_share_weight,
+            emb_src_tgt_weight_sharing=opt.embs_share_weight,
+            d_k=opt.d_k,
+            d_v=opt.d_v,
+            d_model=opt.d_model,
+            d_word_vec=opt.d_word_vec,
+            d_inner=opt.d_inner_hid,
+            n_layers=opt.n_layers,
+            n_head=opt.n_head,
+            dropout=opt.dropout,
+            tt_params=opt.tt_params).to(device)
+
+        optimizer = ScheduledOptim(
+            optim.Adam(
+                filter(lambda x: x.requires_grad, transformer.parameters()),
+                betas=(0.9, 0.98), eps=1e-09),
+            opt.d_model, opt.n_warmup_steps)
+        print(f"Number of trainable parameters: {sum(p.numel() for p in transformer.parameters() if p.requires_grad)}")
         summary(transformer, [[opt.max_token_seq_len] for i in range(4)], dtype="long")
     architecture_summary = f.getvalue()
     print(architecture_summary)
@@ -290,6 +290,7 @@ def main():
         log_architecture_file = opt.log + '.architecture.log'
         with open(log_architecture_file, 'w') as log_a:
             log_a.write(architecture_summary)
+
 
     train(transformer, training_data, validation_data, optimizer, device, opt)
 
