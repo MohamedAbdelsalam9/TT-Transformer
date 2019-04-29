@@ -3,7 +3,7 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 from transformer.Modules import ScaledDotProductAttention
-from t3nsor.layers import TTLinearSeq
+from t3nsor.layers import TTLinearSeq, TTLinear
 import transformer.Constants as Constants
 
 __author__ = "Yu-Hsiang Huang"
