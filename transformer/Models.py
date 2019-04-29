@@ -195,7 +195,10 @@ class Transformer(nn.Module):
         if Constants.embedding_ in tt_params:
             # if Embedding will be tt-factorized, then target word project should be as well,
             # in order to enable weight sharing.
-            self.tgt_word_prj = TTLinearSeq(d_model, n_tgt_vocab, bias=False, auto_shapes=True,
+            emb_size = self.decoder.tgt_word_emb.emb_size
+            voc_size = self.decoder.tgt_word_emb.voc_size
+            shape = [self.decoder.tgt_word_emb.shape[1], self.decoder.tgt_word_emb.shape[0]]
+            self.tgt_word_prj = TTLinearSeq(emb_size, voc_size, bias=False, shape=shape,
                                          d=tt_params[Constants.embedding_]["n_tt_cores"],
                                          tt_rank=tt_params[Constants.embedding_]["tt_rank"])
         else:
