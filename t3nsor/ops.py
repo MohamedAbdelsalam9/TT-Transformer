@@ -32,16 +32,8 @@ def gather_rows(tt_mat, inds):
             
        
     return res
-        
-        
-        
-        
-        
         #slices.append(torch.index_select(core, 1, i).permute(1, 0, 2, 3))
-        
-        
-
-    return TensorTrainBatch(slices, convert_to_tensors=False)
+    # return TensorTrainBatch(slices, convert_to_tensors=False)
 
 
 def transpose(tt_matrix):
