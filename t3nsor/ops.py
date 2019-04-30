@@ -64,8 +64,8 @@ def tt_dense_matmul(tt_matrix_a, matrix_b):
     a_columns = tt_matrix_a.shape[1]
     b_rows = matrix_b.shape[0]
 
-    print('tt_matrix_a shape: ', tt_matrix_a.shape)
-    print('matrix_b shape: ', matrix_b.shape)
+    # print('tt_matrix_a shape: ', tt_matrix_a.shape)
+    # print('matrix_b shape: ', matrix_b.shape)
 
     if a_columns is not None and b_rows is not None:
         if a_columns != b_rows:
