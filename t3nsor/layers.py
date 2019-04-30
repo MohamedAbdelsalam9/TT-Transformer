@@ -28,6 +28,7 @@ class TTEmbedding(nn.Module):
 
             shape = [voc_quantization, emb_quantization]
             self.shape = shape
+            print('Created TTEmbeding layer with voc shape: {}. emb shape: {}'.format(voc_quantization, emb_quantization))
             
         else:
             self.shape = shape
