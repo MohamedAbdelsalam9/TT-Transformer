@@ -8,3 +8,7 @@ PAD_WORD = '<blank>'
 UNK_WORD = '<unk>'
 BOS_WORD = '<s>'
 EOS_WORD = '</s>'
+
+embedding_ = "Embedding"
+pff_ = "PFF"
+attention_ = "Attention"

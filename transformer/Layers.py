@@ -8,11 +8,11 @@ __author__ = "Yu-Hsiang Huang"
 class EncoderLayer(nn.Module):
     ''' Compose with two layers '''
 
-    def __init__(self, d_model, d_inner, n_head, d_k, d_v, dropout=0.1, use_tt=False, n_tt_dim=3, tt_rank=8):
+    def __init__(self, d_model, d_inner, n_head, d_k, d_v, dropout=0.1, tt_params={}):
         super(EncoderLayer, self).__init__()
         self.slf_attn = MultiHeadAttention(
-            n_head, d_model, d_k, d_v, dropout=dropout, use_tt=use_tt, n_tt_dim=n_tt_dim, tt_rank=tt_rank)
-        self.pos_ffn = PositionwiseFeedForward(d_model, d_inner, dropout=dropout)
+            n_head, d_model, d_k, d_v, dropout=dropout, tt_params=tt_params)
+        self.pos_ffn = PositionwiseFeedForward(d_model, d_inner, dropout=dropout, tt_params=tt_params)
 
     def forward(self, enc_input, non_pad_mask=None, slf_attn_mask=None):
         enc_output, enc_slf_attn = self.slf_attn(
@@ -28,11 +28,11 @@ class EncoderLayer(nn.Module):
 class DecoderLayer(nn.Module):
     ''' Compose with three layers '''
 
-    def __init__(self, d_model, d_inner, n_head, d_k, d_v, dropout=0.1, use_tt=False, n_tt_dim=3, tt_rank=8):
+    def __init__(self, d_model, d_inner, n_head, d_k, d_v, dropout=0.1, tt_params={}):
         super(DecoderLayer, self).__init__()
-        self.slf_attn = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout=dropout, use_tt=use_tt, n_tt_dim=n_tt_dim, tt_rank=tt_rank)
-        self.enc_attn = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout=dropout, use_tt=use_tt, n_tt_dim=n_tt_dim, tt_rank=tt_rank)
-        self.pos_ffn = PositionwiseFeedForward(d_model, d_inner, dropout=dropout, use_tt=use_tt, n_tt_dim=n_tt_dim, tt_rank=tt_rank)
+        self.slf_attn = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout=dropout, tt_params=tt_params)
+        self.enc_attn = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout=dropout, tt_params=tt_params)
+        self.pos_ffn = PositionwiseFeedForward(d_model, d_inner, dropout=dropout, tt_params=tt_params)
 
     def forward(self, dec_input, enc_output, non_pad_mask=None, slf_attn_mask=None, dec_enc_attn_mask=None):
         dec_output, dec_slf_attn = self.slf_attn(

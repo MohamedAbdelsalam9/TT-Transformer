@@ -153,17 +153,19 @@ def train(model, training_data, validation_data, optimizer, device, opt):
         start = time.time()
         train_loss, train_accu = train_epoch(
             model, training_data, optimizer, device, smoothing=opt.label_smoothing)
-        print('  - (Training)   ppl: {ppl: 8.5f}, accuracy: {accu:3.3f} %, '\
+        train_elapse = (time.time()-start)/60
+        print('  - (Training)   loss: {loss: 8.5f}, ppl: {ppl: 8.5f}, accuracy: {accu:3.3f} %, '\
               'elapse: {elapse:3.3f} min'.format(
-                  ppl=math.exp(min(train_loss, 100)), accu=100*train_accu,
-                  elapse=(time.time()-start)/60))
+                  loss=train_loss, ppl=math.exp(min(train_loss, 100)), accu=100*train_accu,
+                  elapse=train_elapse))
 
         start = time.time()
         valid_loss, valid_accu = eval_epoch(model, validation_data, device)
-        print('  - (Validation) ppl: {ppl: 8.5f}, accuracy: {accu:3.3f} %, '\
+        valid_elapse = (time.time() - start) / 60
+        print('  - (Validation) loss: {loss: 8.5f}, ppl: {ppl: 8.5f}, accuracy: {accu:3.3f} %, '\
                 'elapse: {elapse:3.3f} min'.format(
-                    ppl=math.exp(min(valid_loss, 100)), accu=100*valid_accu,
-                    elapse=(time.time()-start)/60))
+                    loss=valid_loss, ppl=math.exp(min(valid_loss, 100)), accu=100*valid_accu,
+                    elapse=valid_elapse))
 
         valid_accus += [valid_accu]
 
@@ -187,10 +189,10 @@ def train(model, training_data, validation_data, optimizer, device, opt):
             with open(log_train_file, 'a') as log_tf, open(log_valid_file, 'a') as log_vf:
                 log_tf.write('{epoch},{loss: 8.5f},{ppl: 8.5f},{accu:3.3f}, {elapse:3.3f} min\n'.format(
                     epoch=epoch_i, loss=train_loss,
-                    ppl=math.exp(min(train_loss, 100)), accu=100*train_accu, elapse=(time.time()-start)/60))
+                    ppl=math.exp(min(train_loss, 100)), accu=100*train_accu, elapse=train_elapse))
                 log_vf.write('{epoch},{loss: 8.5f},{ppl: 8.5f},{accu:3.3f}, {elapse:3.3f} min\n'.format(
                     epoch=epoch_i, loss=valid_loss,
-                    ppl=math.exp(min(valid_loss, 100)), accu=100*valid_accu, elapse=(time.time()-start)/60))
+                    ppl=math.exp(min(valid_loss, 100)), accu=100*valid_accu, elapse=valid_elapse))
 
 def main():
     ''' Main function '''
@@ -222,13 +224,21 @@ def main():
     parser.add_argument('-no_cuda', action='store_true')
     parser.add_argument('-label_smoothing', action='store_true')
     parser.add_argument('-seed', type=int, default=None)
-    parser.add_argument('-use_TT', action='store_true')
-    parser.add_argument('-n_tt_dim', type=int, default=3)
-    parser.add_argument('-tt_rank', type=int, default=8)
+    parser.add_argument('-use_TT', nargs='+', choices=[Constants.embedding_, Constants.pff_, Constants.attention_])
+    parser.add_argument('-n_tt_cores', nargs='+', type=int, default=3)
+    parser.add_argument('-tt_rank', nargs='+', type=int, default=8)
 
     opt = parser.parse_args()
     opt.cuda = not opt.no_cuda
     opt.d_word_vec = opt.d_model
+
+    # Parse TT Arguments
+    opt.tt_params = {}
+    if opt.use_TT:
+        assert len(opt.use_TT) == len(opt.n_tt_cores), f"Specify the number of TT-cores for each of the {opt.use_TT}"
+        assert len(opt.use_TT) == len(opt.tt_rank), f"Specify the number of TT-rank for each of the {opt.use_TT}"
+        for i in range(len(opt.use_TT)):
+            opt.tt_params[opt.use_TT[i]] = {"n_tt_cores": opt.n_tt_cores[i], "tt_rank": opt.tt_rank[i]}
 
     if opt.seed is not None:
         torch.random.manual_seed(opt.seed)
@@ -248,35 +258,33 @@ def main():
             'The src/tgt word2idx table are different but asked to share word embedding.'
 
     device = torch.device('cuda' if opt.cuda else 'cpu')
-    transformer = Transformer(
-        opt.src_vocab_size,
-        opt.tgt_vocab_size,
-        opt.max_token_seq_len,
-        tgt_emb_prj_weight_sharing=opt.proj_share_weight,
-        emb_src_tgt_weight_sharing=opt.embs_share_weight,
-        d_k=opt.d_k,
-        d_v=opt.d_v,
-        d_model=opt.d_model,
-        d_word_vec=opt.d_word_vec,
-        d_inner=opt.d_inner_hid,
-        n_layers=opt.n_layers,
-        n_head=opt.n_head,
-        dropout=opt.dropout,
-        use_tt=opt.use_TT,
-        n_tt_dim=opt.n_tt_dim,
-        tt_rank=opt.tt_rank).to(device)
-
-    optimizer = ScheduledOptim(
-        optim.Adam(
-            filter(lambda x: x.requires_grad, transformer.parameters()),
-            betas=(0.9, 0.98), eps=1e-09),
-        opt.d_model, opt.n_warmup_steps)
 
     # Print the model architecture and hyperparameters
     f = io.StringIO()
     with redirect_stdout(f):
         print(opt)
-        print (f"Number of trainable parameters: {sum(p.numel() for p in transformer.parameters() if p.requires_grad)}")
+        transformer = Transformer(
+            opt.src_vocab_size,
+            opt.tgt_vocab_size,
+            opt.max_token_seq_len,
+            tgt_emb_prj_weight_sharing=opt.proj_share_weight,
+            emb_src_tgt_weight_sharing=opt.embs_share_weight,
+            d_k=opt.d_k,
+            d_v=opt.d_v,
+            d_model=opt.d_model,
+            d_word_vec=opt.d_word_vec,
+            d_inner=opt.d_inner_hid,
+            n_layers=opt.n_layers,
+            n_head=opt.n_head,
+            dropout=opt.dropout,
+            tt_params=opt.tt_params).to(device)
+
+        optimizer = ScheduledOptim(
+            optim.Adam(
+                filter(lambda x: x.requires_grad, transformer.parameters()),
+                betas=(0.9, 0.98), eps=1e-09),
+            opt.d_model, opt.n_warmup_steps)
+        print(f"Number of trainable parameters: {sum(p.numel() for p in transformer.parameters() if p.requires_grad)}")
         summary(transformer, [[opt.max_token_seq_len] for i in range(4)], dtype="long")
     architecture_summary = f.getvalue()
     print(architecture_summary)
@@ -284,6 +292,7 @@ def main():
         log_architecture_file = opt.log + '.architecture.log'
         with open(log_architecture_file, 'w') as log_a:
             log_a.write(architecture_summary)
+
 
     train(transformer, training_data, validation_data, optimizer, device, opt)
 
